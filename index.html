@@ -183,13 +183,18 @@
         }
 
         function stripLrcTags(text) {
+                function stripLrcTags(text) {
             if (!text) return "";
-            // Split line by line to ensure isolation
             return text.split(/\r?\n/)
-                .map(line => line.replace(/\[.*?\]/g, '').trim()) // Remove tags and extra spaces
-                .filter(line => line.length > 0) // Remove purely empty lines
-                .join('\n'); // Reconstruct the clean text
+                // Only keep lines that start with a bracketed tag [ ]
+                .filter(line => /^\[.+?\]/.test(line.trim())) 
+                // Remove all tags from those lines, leaving just the text
+                .map(line => line.replace(/\[.*?\]/g, '').trim()) 
+                // Remove any lines that are empty after stripping the tags
+                .filter(line => line.length > 0) 
+                .join('\n'); 
         }
+
 
         function normalizeText(str) {
             if (!str) return "";
