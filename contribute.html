@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MusixMatch Contribution Guide</title>
+    <style>
+        :root {
+            --bg-color: #f9f9fa;
+            --text-color: #333;
+            --primary: #0066cc;
+            --border: #ccc;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        /* Language Switcher Styles */
+        .lang-switcher {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-top: 10px;
+        }
+        .lang-btn {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 2px solid var(--primary);
+            background-color: white;
+            color: var(--primary);
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .lang-btn:hover {
+            background-color: #e8f4fd;
+        }
+        .lang-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        /* Container Visibility */
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: none; /* Hidden by default */
+        }
+        .container.active {
+            display: block; /* Shown when active */
+        }
+
+        .intro {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .step-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .step-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .step-content {
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .step-image {
+            display: block;
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-top: 15px;
+            background: #f4f4f4;
+        }
+        .note {
+            background: #e8f4fd;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 8px 8px 0;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        
+        /* Language Specific Adjustments */
+        .ar {
+            direction: rtl;
+            text-align: right;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .ar .note {
+            border-left: none;
+            border-right: 4px solid var(--primary);
+            border-radius: 8px 0 0 8px;
+        }
+        .zgh {
+            font-family: 'Ebrima', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLanguage('zgh', this)">ⵜⴰⵎⴰⵣⵉⵖⵜ</button>
+        <button class="lang-btn" onclick="switchLanguage('en', this)">English</button>
+        <button class="lang-btn" onclick="switchLanguage('ar', this)">العربية</button>
+    </div>
+
+    <div id="zgh" class="container zgh active" lang="zgh">
+        <div class="intro">
+            <h1>ⵎⴰⵎⵏⴽ ⵜⴻⵜⵜⴰⵡⵙⴷ ⴳ ⵢⵉⵙⴼⵔⴰ (Lyrics)</h1>
+            <p>ⵉⵙⴼⵔⴰ ⵉⵎⵢⴰⴽⵓⴷⵏ  (Synced) ⵔⴰⴷ ⵉⵍⵉⵏ ⵉ ⵢⵉⵏⵙⵙⵎⵔⴰⵙⵏ ⴳ MusixMatch, ⴷ ⵓⵍⴰ ⴳ ⵜⵏⴼⴰⵙ ⵏ ⴼⵉⵢⵙⴱⵓⴽ ⴷ ⵉⵏⵚⵟⴰⴳⵕⴰⵎ.</p>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">ⴰⵙⵓⵔⵉⴼ 1: ⴰⴽⵛⵛⵓⵎ ⵖⵔ MusixMatch</h2>
+            <div class="step-content">
+                ⵙⵙⵕⵚⵓ ⵜⵉⵙⵏⵙⵉ ⵏ MusixMatch ⴳ ⵓⵜⵉⵍⵉⴼⵓⵏ ⵏⵏⴽ (ⴰⵙⵜⴰⵢ ⴰⵎⵓⴼⴰⵢ) ⵏⵖ ⴽⵛⵎ ⵖⵔ ⵓⵙⵉⵜ ⵏ ⵓⵡⵉⴱ ⴳ ⵓⵙⵍⴽⵉⵎ ⵏⵏⴽ (ⵏⵖ ⵙⵎⵔⵙ ⴰⴷⴷⴰⴷ ⵏ ⵓⵙⵍⴽⵉⵎ ⴳ ⵓⵜⵉⵍⵉⴼⵓⵏ ⵏⵏⴽ).
+                <img src="MusixMatch.jpeg" alt="Step illustration" class="step-image">
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">ⴰⵙⵓⵔⵉⴼ 2: ⵙⴽⵔ ⴰⵎⵉⴹⴰⵏ</h2>
+            <div class="step-content">
+                ⵙⴽⵔ ⵢⴰⵏ ⵓⵎⵉⴹⴰⵏ ⴰⵎⴰⵢⵏⵓ ⵜⴽⵛⵎⴷ ⴰⴼⴰⴷ ⴰⴷ ⵜⵙⵙⵏⵜⵉⴷ ⵜⵉⵡⵉⵙⵉ.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">ⴰⵙⵓⵔⵉⴼ 3: ⵟⵟⴼ ⵉⵙⴼⵔⴰ</h2>
+            <div class="step-content">
+                ⴽⵛⵎ ⵖⵔ ⵜⵙⴷⵍⵉⵙⵜ ⵏ Amazigh LRC, ⵙⵜⵉ ⵉⵙⴼⵔⴰ ⵏ ⵢⵉⵣⵍⵉ ⵏⵏⴰ ⵜⵅⵙⴷ, ⵙⵙⵏⵖⵍ ⵜⵏ ⵖⵔ ⵜⵍⴳⴰⵎⵜ ⵏ ⵓⵙⵏⵖⵍ ⵏⵏⴽ.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">ⴰⵙⵓⵔⵉⴼ 4: ⴰⴼ ⵉⵣⵍⵉ</h2>
+            <div class="step-content">
+                ⵔⵣⵓ ⵖⴼ ⵢⵉⵣⵍⵉ ⴳ MusixMatch. ⴰⴷ ⵜⵜ ⵜⴰⴼⴷ, ⴰⴷⵔ ⵖⴼ ⵜⵙⴰⵔⵓⵜ ⵏ <strong>ⴰⴱⵣⴰⵔ</strong>.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">ⴰⵙⵓⵔⵉⴼ 5: ⵙⵍⵖ ⴷ ⴰⵣⵏ (Paste and Send)</h2>
+            <div class="step-content">
+                ⵙⵍⵖ ⵉⵙⴼⵔⴰ ⵍⵍⵉ ⵜⵙⵙⵏⵖⵍⴷ, ⵙⵏⴼⵍ ⵜⵏ ⵉⴳ ⴷ ⵉⵇⵇⴰⵏ, ⵜⴰⴷⵔⴷ ⵖⴼ <strong>ⴰⵣⵏ</strong>.
+            </div>
+        </div>
+
+        <div class="note">
+            <strong> ⴰⵙⵎⵢⴰⴽⵓⴷ:</strong> ⵉⴳ ⵖⵓⵔⴽ ⵜⴰⵙⵓⵔⵉ (Subscription) ⵏ Spotify Premium ⵏⵖ ⴷ Apple Music, ⵜⵣⵎⵔⴷ ⴰⴷ ⵜⵙⵎⵙⴰⵙⴰⴷ ⴰⵎⵢⴰⴽⵓⴷ ⵏ ⵢⵉⵙⴼⵔⴰ ⴰⴳⴷ ⵢⵉⵣⵍⴰⵏ ⵍⵍⵉ ⵉⵍⵍⴰⵏ ⴳ MusixMatch ⴰⴼⴰⴷ ⴰⴷ ⵜⵙⵎⵏⵉⴷⴷ ⵜⵉⴳⵓⵔⵉⵡⵉⵏ ⴳ ⵡⴰⴽⵓⴷ ⵓⵙⵔⵉⴷ.
+        </div>
+    </div>
+
+    <div id="en" class="container" lang="en">
+        <div class="intro">
+            <h1>How to Contribute Lyrics</h1>
+            <p>Your synced lyrics will be accessible by users on MusixMatch, as well as on Facebook and Instagram Stories.</p>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">Step 1: Access MusixMatch</h2>
+            <div class="step-content">
+                Install the MusixMatch app on your smartphone (the best option) or access the website on a computer (or use Desktop mode on your phone).
+                <img src="MusixMatch.jpeg" alt="Step illustration" class="step-image">
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">Step 2: Create an Account</h2>
+            <div class="step-content">
+                Create a new account and log in to start contributing.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">Step 3: Get the Lyrics</h2>
+            <div class="step-content">
+                Access the Amazigh LRC Library, choose a song's lyrics, and copy them to your clipboard.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">Step 4: Locate the Song</h2>
+            <div class="step-content">
+                Search for the song on MusixMatch. Once you locate it, click the <strong>Contribute</strong> button.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">Step 5: Submit and Send</h2>
+            <div class="step-content">
+                Paste the copied lyrics, modify them if necessary, and hit <strong>Send</strong>.
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>Syncing Bonus:</strong> If you have a Spotify Premium or Apple Music subscription, you can sync songs that are available on MusixMatch to display lyrics in real-time.
+        </div>
+    </div>
+
+    <div id="ar" class="container ar" lang="ar">
+        <div class="intro">
+            <h1>كيفية المساهمة بكلمات الأغاني</h1>
+            <p>ستكون كلمات الأغاني المتزامنة الخاصة بك متاحة للمستخدمين على MusixMatch، وكذلك على قصص فيسبوك وإنستغرام.</p>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">الخطوة 1: الوصول إلى MusixMatch</h2>
+            <div class="step-content">
+                قم بتثبيت تطبيق MusixMatch على هاتفك الذكي (الخيار الأفضل) أو ادخل إلى الموقع الإلكتروني على جهاز الكمبيوتر (أو استخدم وضع سطح المكتب على هاتفك).
+                <img src="MusixMatch.jpeg" alt="Step illustration" class="step-image">
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">الخطوة 2: إنشاء حساب</h2>
+            <div class="step-content">
+                قم بإنشاء حساب جديد وسجل الدخول للبدء في المساهمة.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">الخطوة 3: الحصول على الكلمات</h2>
+            <div class="step-content">
+                ادخل إلى مكتبة الكلمات الأمازيغية (Amazigh LRC Library)، اختر كلمات أغنية، وانسخها إلى الحافظة.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">الخطوة 4: تحديد موقع الأغنية</h2>
+            <div class="step-content">
+                ابحث عن الأغنية على MusixMatch. بمجرد العثور عليها، انقر على زر <strong>المساهمة (Contribute)</strong>.
+            </div>
+        </div>
+
+        <div class="step-card">
+            <h2 class="step-title">الخطوة 5: الإرسال</h2>
+            <div class="step-content">
+                الصق الكلمات المنسوخة، قم بتعديلها إذا لزم الأمر، واضغط على <strong>إرسال (Send)</strong>.
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>مكافأة المزامنة:</strong> إذا كان لديك اشتراك في Spotify Premium أو Apple Music، يمكنك مزامنة الأغاني المتاحة على MusixMatch لعرض الكلمات في الوقت الفعلي.
+        </div>
+    </div>
+
+    <script>
+        function switchLanguage(langId, clickedBtn) {
+            // 1. Hide all containers
+            const containers = document.querySelectorAll('.container');
+            containers.forEach(container => {
+                container.classList.remove('active');
+            });
+
+            // 2. Remove 'active' styling from all buttons
+            const buttons = document.querySelectorAll('.lang-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 3. Show the selected container and highlight the button
+            document.getElementById(langId).classList.add('active');
+            clickedBtn.classList.add('active');
+        }
+    </script>
+</body>
+</html>
