@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyrics Library</title>
+    <style>
+        :root {
+            --bg-color: #f9f9fa;
+            --text-color: #333;
+            --primary: #0066cc;
+            --border: #ccc;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: all 0.3s ease;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .search-container {
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+            transition: all 0.3s ease;
+        }
+        .search-box {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 18px;
+            border: 2px solid var(--border);
+            border-radius: 25px;
+            outline: none;
+            box-sizing: border-box;
+        }
+        .search-box:focus {
+            border-color: var(--primary);
+        }
+        .options {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        #results-header {
+            display: none;
+            margin-top: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            width: 100%;
+            max-width: 800px;
+            text-align: left;
+        }
+        #results {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .result-item {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .result-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        .tabs {
+            margin-bottom: 10px;
+        }
+        .tabs button {
+            background: none;
+            border: 1px solid var(--border);
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
+        .tabs button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .content-display {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+            position: relative;
+        }
+        .actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .action-btn {
+            background: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .action-btn:hover {
+            background: #d0d0d0;
+        }
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="search-container" id="search-container">
+    	<p>
+<a href="contribute.html">MusixMatch Contribution</a>
+    <br>There are currently 150+ Songs in this library.
+    </p>
+        <input type="text" id="search-input" class="search-box" placeholder="Search lyrics..." autocomplete="off">
+        <div class="options">
+            <label>
+                <input type="checkbox" id="search-files-check" checked> Look within .lrc files content
+            </label>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">Loading...</div>
+    <div id="results-header"></div>
+    <div id="results"></div>
+
+    <script>
+        const searchInput = document.getElementById('search-input');
+        const searchFilesCheck = document.getElementById('search-files-check');
+        const resultsHeader = document.getElementById('results-header');
+        const resultsContainer = document.getElementById('results');
+        const loading = document.getElementById('loading');
+
+        let fileList = [];
+        let fileContentsCache = {};
+
+        // Load data.txt on startup
+        async function loadFileList() {
+            try {
+                const response = await fetch('data.txt');
+                if (!response.ok) throw new Error("data.txt not found");
+                const text = await response.text();
+                fileList = text.split('\n').map(f => f.trim()).filter(f => f.length > 0);
+                performSearch(''); // Trigger initial load of all songs
+            } catch (e) {
+                console.error("Error loading data.txt:", e);
+                resultsContainer.innerHTML = "<p>Error: Could not load data.txt. Ensure it exists in the same directory.</p>";
+            }
+        }
+
+        async function fetchFileContent(filename) {
+            if (fileContentsCache[filename]) return fileContentsCache[filename];
+            try {
+                const response = await fetch(`lyrics/${filename}`); //Directory of Lyrics ***
+                if (!response.ok) return "";
+                const text = await response.text();
+                fileContentsCache[filename] = text;
+                return text;
+            } catch {
+                return "";
+            }
+        }
+
+        function stripLrcTags(text) {
+            if (!text) return "";
+            return text.split(/\r?\n/)
+                .filter(line => /^\[.+?\]/.test(line.trim())) 
+                .map(line => line.replace(/\[.*?\]/g, '').trim()) 
+                .filter(line => line.length > 0) 
+                .join('\n'); 
+        }
+
+        function normalizeText(str) {
+            if (!str) return "";
+            return str
+                .replace(/(^|\s)ⵜ[ⴰⵓⵉ]/g, '$1ⵜ') 
+                .replace(/(^|\s)[ⴰⵓⵉ]/g, '$1ⴰ')   
+                .replace(/(^|\s)ⵡⵓ/g, '$1ⵓ')      
+                .replace(/(^|\s)ⵢⵉ/g, '$1ⵉ')      
+                .replace(/ⵕ/g, 'ⵔ')
+                .replace(/ⵯ/g, '')
+                .replace(/ⵚ/g, 'ⵙ')
+                .replace(/ⵥ/g, 'ⵣ')
+                .replace(/ⴹ/g, 'ⴷ')
+                .replace(/ⵟ/g, 'ⵜ')
+                .replace(/\s+/g, '') 
+                .replace(/(.)\1+/g, '$1'); 
+        }
+
+        function normalizeTextLevel2(str) {
+            if (!str) return "";
+            let n1 = normalizeText(str);
+            return n1
+                .replace(/[ⴰⵉⵓⴻ]/g, '') 
+                .replace(/(.)\1+/g, '$1'); 
+        }
+
+        function normalizeTextLevel3(str) {
+            if (!str) return "";
+            let n2 = normalizeTextLevel2(str);
+            return n2
+                .replace(/[ⵡⵢ]/g, '') 
+                .replace(/(.)\1+/g, '$1'); 
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        async function performSearch(query) {
+            const queryClean = query.trim();
+
+            resultsHeader.style.display = 'block';
+            if (!queryClean) {
+                resultsHeader.textContent = `All Songs (${fileList.length})`;
+            } else {
+                resultsHeader.textContent = `Results of "${queryClean}"`;
+            }
+            
+            resultsContainer.innerHTML = '';
+            loading.style.display = 'block';
+
+            let results = [];
+
+            // If empty search, dump the whole list
+            if (!queryClean) {
+                await Promise.all(fileList.map(f => fetchFileContent(f)));
+                for (const filename of fileList) {
+                    const title = filename.replace(/\.lrc$/i, '');
+                    results.push({ filename, title, raw: fileContentsCache[filename] || "", score: 0 });
+                }
+                renderResults(results);
+                loading.style.display = 'none';
+                return;
+            }
+
+            const searchInFiles = searchFilesCheck.checked;
+            const words = queryClean.split(/\s+/);
+            
+            const normQuery1 = normalizeText(queryClean);
+            const normQuery2 = normalizeTextLevel2(queryClean);
+            const normQuery3 = normalizeTextLevel3(queryClean);
+            
+            if (searchInFiles) {
+                await Promise.all(fileList.map(f => fetchFileContent(f)));
+            }
+
+            for (const filename of fileList) {
+                const title = filename.replace(/\.lrc$/i, '');
+                let content = "";
+                if (searchInFiles) {
+                    content = await fetchFileContent(filename);
+                }
+
+                let score = 999;
+
+                const titleRegexStart = new RegExp('^' + escapeRegExp(queryClean) + '\\b', 'i');
+                const titleRegexWithin = new RegExp('\\b' + escapeRegExp(queryClean) + '\\b', 'i');
+                const titleRegexEnd = new RegExp('\\b' + escapeRegExp(queryClean) + '$', 'i');
+                
+                if (titleRegexStart.test(title)) {
+                    score = 1;
+                } else if (titleRegexWithin.test(title)) {
+                    score = 2;
+                } else if (searchInFiles && new RegExp('\\b' + escapeRegExp(queryClean) + '\\b', 'i').test(content)) {
+                    score = 2; 
+                } else if (titleRegexEnd.test(title)) {
+                    score = 3;
+                } else {
+                    let allWordsFound = true;
+                    for (const word of words) {
+                        if (!new RegExp('\\b' + escapeRegExp(word) + '\\b', 'i').test(title)) {
+                            allWordsFound = false;
+                            break;
+                        }
+                    }
+                    if (allWordsFound) score = 4;
+                }
+
+                if (score === 999) {
+                    const normTitle1 = normalizeText(title);
+                    const normContent1 = normalizeText(content);
+                    
+                    if (normTitle1.includes(normQuery1) || (searchInFiles && normContent1.includes(normQuery1))) {
+                        score = 5;
+                    } else {
+                        let allNormWordsFound = words.length > 0;
+                        for (const word of words) {
+                            if (!normTitle1.includes(normalizeText(word))) {
+                                allNormWordsFound = false; break;
+                            }
+                        }
+                        if (allNormWordsFound) score = 6;
+                    }
+
+                    if (score === 999) {
+                        const normTitle2 = normalizeTextLevel2(title);
+                        const normContent2 = normalizeTextLevel2(content);
+                        
+                        if (normTitle2.includes(normQuery2) || (searchInFiles && normContent2.includes(normQuery2))) {
+                            score = 7;
+                        } else {
+                            let allNormWordsFound = words.length > 0;
+                            for (const word of words) {
+                                if (!normTitle2.includes(normalizeTextLevel2(word))) {
+                                    allNormWordsFound = false; break;
+                                }
+                            }
+                            if (allNormWordsFound) score = 8;
+                        }
+                    }
+
+                    if (score === 999) {
+                        const normTitle3 = normalizeTextLevel3(title);
+                        const normContent3 = normalizeTextLevel3(content);
+                        
+                        if (normTitle3.includes(normQuery3) || (searchInFiles && normContent3.includes(normQuery3))) {
+                            score = 9;
+                        } else {
+                            let allNormWordsFound = words.length > 0;
+                            for (const word of words) {
+                                if (!normTitle3.includes(normalizeTextLevel3(word))) {
+                                    allNormWordsFound = false; break;
+                                }
+                            }
+                            if (allNormWordsFound) score = 10;
+                        }
+                    }
+                }
+
+                if (score < 999) {
+                    if (!content) content = await fetchFileContent(filename);
+                    results.push({ filename, title, raw: content, score });
+                }
+            }
+
+            results.sort((a, b) => a.score - b.score);
+            renderResults(results);
+            loading.style.display = 'none';
+        }
+
+        function renderResults(results) {
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<p>No results found.</p>';
+                return;
+            }
+
+            Object.keys(window).forEach(key => {
+                if (key.startsWith('resData_')) {
+                    delete window[key];
+                }
+            });
+
+            const tempDiv = document.createElement('div');
+            
+            results.forEach((res, index) => {
+                const plainText = stripLrcTags(res.raw);
+                const item = document.createElement('div');
+                item.className = 'result-item';
+
+                item.innerHTML = `
+                    <div class="result-title">${res.title}</div>
+                    <div class="tabs">
+                        <button class="active" onclick="switchTab(${index}, 'plain')">Plain Text</button>
+                        <button onclick="switchTab(${index}, 'synced')">Synced</button>
+                    </div>
+                    <div id="content-${index}" class="content-display"></div>
+                    <div class="actions">
+                        <button class="action-btn" id="expand-${index}" onclick="toggleExpand(${index})">Expand Full File</button>
+                        <button class="action-btn" onclick="copyContent(${index})">Copy</button>
+                    </div>
+                `;
+                tempDiv.appendChild(item);
+
+                window[`resData_${index}`] = {
+                    plain: plainText,
+                    synced: res.raw,
+                    currentTab: 'plain',
+                    expanded: false
+                };
+            });
+            
+            resultsContainer.innerHTML = '';
+            resultsContainer.appendChild(tempDiv);
+            
+            results.forEach((_, index) => {
+                updateDisplay(index);
+            });
+        }
+
+        window.switchTab = function(index, type) {
+            window[`resData_${index}`].currentTab = type;
+            const item = document.querySelectorAll('.result-item')[index];
+            const btns = item.querySelectorAll('.tabs button');
+            btns[0].classList.toggle('active', type === 'plain');
+            btns[1].classList.toggle('active', type === 'synced');
+            updateDisplay(index);
+        }
+
+        window.toggleExpand = function(index) {
+            window[`resData_${index}`].expanded = !window[`resData_${index}`].expanded;
+            const btn = document.getElementById(`expand-${index}`);
+            btn.textContent = window[`resData_${index}`].expanded ? "Show Less" : "Expand Full File";
+            updateDisplay(index);
+        }
+
+        window.copyContent = function(index) {
+            const data = window[`resData_${index}`];
+            const content = data.currentTab === 'plain' ? data.plain : data.synced;
+            navigator.clipboard.writeText(content).then(() => {
+                alert("Copied to clipboard!");
+            });
+        }
+
+        function updateDisplay(index) {
+            const data = window[`resData_${index}`];
+            const contentDiv = document.getElementById(`content-${index}`);
+            if (!contentDiv) return;
+            
+            const fullContent = data.currentTab === 'plain' ? data.plain : data.synced;
+            
+            if (data.expanded) {
+                contentDiv.textContent = fullContent || "No content available.";
+            } else {
+                const lines = fullContent.split('\n').slice(0, 5).join('\n');
+                contentDiv.textContent = lines + (fullContent.split('\n').length > 5 ? '\n...' : '') || "No content available.";
+            }
+        }
+
+        let debounceTimer;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                performSearch(e.target.value);
+            }, 400); 
+        });
+
+        searchFilesCheck.addEventListener('change', () => {
+            performSearch(searchInput.value);
+        });
+
+        // Init
+        loadFileList();
+    </script>
+</body>
+</html>
