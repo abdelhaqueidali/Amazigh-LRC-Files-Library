@@ -139,7 +139,7 @@
         </div>
     </div>
 
-    <div class="loading" id="loading">Loading...</div>
+    <div class="loading" id="loading">Searching...</div>
     <div id="results-header"></div>
     <div id="results"></div>
 
@@ -170,7 +170,8 @@
         async function fetchFileContent(filename) {
             if (fileContentsCache[filename]) return fileContentsCache[filename];
             try {
-                const response = await fetch(`lyrics/${filename}`); //Directory of Lyrics ***
+                // FIXED: Removed the 'lyrics/' path that was causing the content not to load
+                const response = await fetch(`${filename}`); 
                 if (!response.ok) return "";
                 const text = await response.text();
                 fileContentsCache[filename] = text;
@@ -202,6 +203,11 @@
                 .replace(/ⵥ/g, 'ⵣ')
                 .replace(/ⴹ/g, 'ⴷ')
                 .replace(/ⵟ/g, 'ⵜ')
+                .replace(/ⴷⵊ/g, 'ⵊ')
+                .replace(/ⵜⵛ/g, 'ⵛ')
+                .replace(/ⵛ/g, 'ⴽ')
+                .replace(/ⵊ/g, 'ⴳ')
+                .replace(/ⵢ/g, 'ⴳ')
                 .replace(/\s+/g, '') 
                 .replace(/(.)\1+/g, '$1'); 
         }
@@ -220,10 +226,6 @@
             return n2
                 .replace(/[ⵡⵢ]/g, '') 
                 .replace(/(.)\1+/g, '$1'); 
-        }
-
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         async function performSearch(query) {
@@ -264,6 +266,9 @@
                 await Promise.all(fileList.map(f => fetchFileContent(f)));
             }
 
+            // Helper to check if all words exist in a target string (any order)
+            const containsAllWords = (text, wordArr) => wordArr.length > 0 && wordArr.every(w => text.includes(w));
+
             for (const filename of fileList) {
                 const title = filename.replace(/\.lrc$/i, '');
                 let content = "";
@@ -271,78 +276,63 @@
                     content = await fetchFileContent(filename);
                 }
 
+                const titleLower = title.toLowerCase();
+                const contentLower = content.toLowerCase();
+                const queryLower = queryClean.toLowerCase();
+                const queryWords = words.map(w => w.toLowerCase());
+
                 let score = 999;
 
-                const titleRegexStart = new RegExp('^' + escapeRegExp(queryClean) + '\\b', 'i');
-                const titleRegexWithin = new RegExp('\\b' + escapeRegExp(queryClean) + '\\b', 'i');
-                const titleRegexEnd = new RegExp('\\b' + escapeRegExp(queryClean) + '$', 'i');
-                
-                if (titleRegexStart.test(title)) {
+                // 1. Exact match in title (words in order)
+                if (titleLower.includes(queryLower)) {
                     score = 1;
-                } else if (titleRegexWithin.test(title)) {
-                    score = 2;
-                } else if (searchInFiles && new RegExp('\\b' + escapeRegExp(queryClean) + '\\b', 'i').test(content)) {
-                    score = 2; 
-                } else if (titleRegexEnd.test(title)) {
-                    score = 3;
-                } else {
-                    let allWordsFound = true;
-                    for (const word of words) {
-                        if (!new RegExp('\\b' + escapeRegExp(word) + '\\b', 'i').test(title)) {
-                            allWordsFound = false;
-                            break;
-                        }
-                    }
-                    if (allWordsFound) score = 4;
                 }
-
-                if (score === 999) {
+                // 2. Exact match in the title of the searched words (in any order)
+                else if (containsAllWords(titleLower, queryWords)) {
+                    score = 2;
+                }
+                // 3. Exact match of the words in order in the lrc
+                else if (searchInFiles && contentLower.includes(queryLower)) {
+                    score = 3;
+                }
+                // 4. Exact match of those words in different orders in the lrc
+                else if (searchInFiles && containsAllWords(contentLower, queryWords)) {
+                    score = 4;
+                }
+                // 5. The rest and the normalizations
+                else {
+                    // Level 1 Normalization
                     const normTitle1 = normalizeText(title);
-                    const normContent1 = normalizeText(content);
-                    
+                    const normContent1 = searchInFiles ? normalizeText(content) : "";
+                    const normWords1 = words.map(normalizeText);
+
                     if (normTitle1.includes(normQuery1) || (searchInFiles && normContent1.includes(normQuery1))) {
                         score = 5;
-                    } else {
-                        let allNormWordsFound = words.length > 0;
-                        for (const word of words) {
-                            if (!normTitle1.includes(normalizeText(word))) {
-                                allNormWordsFound = false; break;
-                            }
-                        }
-                        if (allNormWordsFound) score = 6;
-                    }
-
-                    if (score === 999) {
+                    } else if (containsAllWords(normTitle1, normWords1) || (searchInFiles && containsAllWords(normContent1, normWords1))) {
+                        score = 6;
+                    } 
+                    // Level 2 Normalization
+                    else {
                         const normTitle2 = normalizeTextLevel2(title);
-                        const normContent2 = normalizeTextLevel2(content);
+                        const normContent2 = searchInFiles ? normalizeTextLevel2(content) : "";
+                        const normWords2 = words.map(normalizeTextLevel2);
                         
                         if (normTitle2.includes(normQuery2) || (searchInFiles && normContent2.includes(normQuery2))) {
                             score = 7;
-                        } else {
-                            let allNormWordsFound = words.length > 0;
-                            for (const word of words) {
-                                if (!normTitle2.includes(normalizeTextLevel2(word))) {
-                                    allNormWordsFound = false; break;
-                                }
-                            }
-                            if (allNormWordsFound) score = 8;
+                        } else if (containsAllWords(normTitle2, normWords2) || (searchInFiles && containsAllWords(normContent2, normWords2))) {
+                            score = 8;
                         }
-                    }
-
-                    if (score === 999) {
-                        const normTitle3 = normalizeTextLevel3(title);
-                        const normContent3 = normalizeTextLevel3(content);
-                        
-                        if (normTitle3.includes(normQuery3) || (searchInFiles && normContent3.includes(normQuery3))) {
-                            score = 9;
-                        } else {
-                            let allNormWordsFound = words.length > 0;
-                            for (const word of words) {
-                                if (!normTitle3.includes(normalizeTextLevel3(word))) {
-                                    allNormWordsFound = false; break;
-                                }
+                        // Level 3 Normalization
+                        else {
+                            const normTitle3 = normalizeTextLevel3(title);
+                            const normContent3 = searchInFiles ? normalizeTextLevel3(content) : "";
+                            const normWords3 = words.map(normalizeTextLevel3);
+                            
+                            if (normTitle3.includes(normQuery3) || (searchInFiles && normContent3.includes(normQuery3))) {
+                                score = 9;
+                            } else if (containsAllWords(normTitle3, normWords3) || (searchInFiles && containsAllWords(normContent3, normWords3))) {
+                                score = 10;
                             }
-                            if (allNormWordsFound) score = 10;
                         }
                     }
                 }
