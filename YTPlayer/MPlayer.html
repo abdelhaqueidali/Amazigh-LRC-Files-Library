@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyrics Library & Player</title>
+    <style>
+        :root {
+            --bg-color: #f9f9fa;
+            --text-color: #333;
+            --primary: #0066cc;
+            --accent: #38bdf8;
+            --border: #ccc;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: all 0.3s ease;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .search-container {
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 18px;
+            border: 2px solid var(--border);
+            border-radius: 25px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        .search-box:focus {
+            border-color: var(--primary);
+        }
+        .options {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        /* --- PLAYER SECTION --- */
+        #player-section {
+            display: none;
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+        }
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            background: #000;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: none;
+        }
+        .lyrics-scroller {
+            height: 350px;
+            overflow-y: auto;
+            padding: 40px 20px;
+            background: #fff;
+            text-align: center;
+            position: relative;
+            scroll-behavior: smooth;
+        }
+        /* Hide scrollbar for cleaner look */
+        .lyrics-scroller::-webkit-scrollbar { width: 6px; }
+        .lyrics-scroller::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        
+        .lyric-line {
+            font-size: 18px;
+            padding: 10px 0;
+            color: #94a3b8;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            min-height: 24px;
+        }
+        .lyric-line:hover {
+            color: #64748b;
+        }
+        .lyric-line.active {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+            transform: scale(1.05);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* --- RESULTS SECTION --- */
+        #results-container {
+            width: 100%;
+            max-width: 800px;
+        }
+        .collapse-toggle {
+            display: none;
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .collapse-toggle:hover {
+            background: #005bb5;
+        }
+        #results-wrapper {
+            transition: max-height 0.4s ease-in-out;
+            overflow: hidden;
+        }
+        #results-wrapper.collapsed {
+            max-height: 0 !important;
+        }
+        #results {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #results-header {
+            display: none;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .result-item {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .result-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        .tabs { margin-bottom: 10px; }
+        .tabs button {
+            background: none;
+            border: 1px solid var(--border);
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
+        .tabs button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .content-display {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+            position: relative;
+        }
+        .actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            background: #e0e0e0;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .action-btn:hover { background: #d0d0d0; }
+        .play-btn {
+            background: var(--primary);
+            color: white;
+        }
+        .play-btn:hover { background: #005bb5; }
+        .loading { display: none; margin-top: 20px; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <div class="search-container" id="search-container">
+        <p>
+            <a href="contribute.html">MusixMatch Contribution</a><br>
+            There are currently 150+ Songs in this library.
+        </p>
+        <input type="text" id="search-input" class="search-box" placeholder="Search lyrics..." autocomplete="off">
+        <div class="options">
+            <label>
+                <input type="checkbox" id="search-files-check" checked> Look within .lrc files content
+            </label>
+        </div>
+    </div>
+
+    <div id="player-section">
+        <div class="video-wrapper">
+            <div id="yt-player-target"></div>
+        </div>
+        <div class="lyrics-scroller" id="lyrics-scroller">
+            </div>
+    </div>
+
+    <div class="loading" id="loading">Searching...</div>
+    
+    <div id="results-container">
+        <button class="collapse-toggle" id="collapse-toggle" onclick="toggleResults()">⬇ Show Search Results</button>
+        <div id="results-wrapper">
+            <div id="results-header"></div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        // --- SEARCH LOGIC VARIABLES ---
+        const searchInput = document.getElementById('search-input');
+        const searchFilesCheck = document.getElementById('search-files-check');
+        const resultsHeader = document.getElementById('results-header');
+        const resultsContainer = document.getElementById('results');
+        const resultsWrapper = document.getElementById('results-wrapper');
+        const loading = document.getElementById('loading');
+        const collapseToggle = document.getElementById('collapse-toggle');
+
+        let fileList = [];
+        let fileContentsCache = {};
+
+        // --- PLAYER LOGIC VARIABLES ---
+        let ytPlayer;
+        let isPlayerReady = false;
+        let currentLyricsData = [];
+        let currentOffset = 0;
+        let syncInterval;
+
+        // YouTube API Init
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('yt-player-target', {
+                height: '360',
+                width: '640',
+                videoId: '', 
+                playerVars: { 'playsinline': 1, 'autoplay': 1 },
+                events: { 'onReady': () => { isPlayerReady = true; } }
+            });
+        }
+
+        // --- CORE DATA LOADING ---
+        async function loadFileList() {
+            try {
+                const response = await fetch('data.txt');
+                if (!response.ok) throw new Error("data.txt not found");
+                const text = await response.text();
+                fileList = text.split('\n').map(f => f.trim()).filter(f => f.length > 0);
+                performSearch(''); 
+            } catch (e) {
+                console.error("Error loading data.txt:", e);
+                resultsContainer.innerHTML = "<p>Error: Could not load data.txt. Ensure it exists in the same directory.</p>";
+            }
+        }
+
+        async function fetchFileContent(filename) {
+            if (fileContentsCache[filename]) return fileContentsCache[filename];
+            try {
+                const response = await fetch(`${filename}`); 
+                if (!response.ok) return "";
+                const text = await response.text();
+                fileContentsCache[filename] = text;
+                return text;
+            } catch {
+                return "";
+            }
+        }
+
+        // --- NORMALIZATION HELPERS ---
+        function stripLrcTags(text) {
+            if (!text) return "";
+            return text.split(/\r?\n/)
+                .filter(line => /^\[.+?\]/.test(line.trim())) 
+                .map(line => line.replace(/\[.*?\]/g, '').trim()) 
+                .filter(line => line.length > 0) 
+                .join('\n'); 
+        }
+
+        function normalizeText(str) {
+            if (!str) return "";
+            return str
+                .replace(/(^|\s)ⵜ[ⴰⵓⵉ]/g, '$1ⵜ') 
+                .replace(/(^|\s)[ⴰⵓⵉ]/g, '$1ⴰ')   
+                .replace(/(^|\s)ⵡⵓ/g, '$1ⵓ')      
+                .replace(/(^|\s)ⵢⵉ/g, '$1ⵉ')      
+                .replace(/ⵕ/g, 'ⵔ')
+                .replace(/ⵯ/g, '')
+                .replace(/ⵚ/g, 'ⵙ')
+                .replace(/ⵥ/g, 'ⵣ')
+                .replace(/ⴹ/g, 'ⴷ')
+                .replace(/ⵟ/g, 'ⵜ')
+                .replace(/ⴷⵊ/g, 'ⵊ')
+                .replace(/ⵜⵛ/g, 'ⵛ')
+                .replace(/ⵛ/g, 'ⴽ')
+                .replace(/ⵊ/g, 'ⴳ')
+                .replace(/ⵢ/g, 'ⴳ')
+                .replace(/\s+/g, '') 
+                .replace(/(.)\1+/g, '$1'); 
+        }
+
+        function normalizeTextLevel2(str) {
+            if (!str) return "";
+            let n1 = normalizeText(str);
+            return n1.replace(/[ⴰⵉⵓⴻ]/g, '').replace(/(.)\1+/g, '$1'); 
+        }
+
+        function normalizeTextLevel3(str) {
+            if (!str) return "";
+            let n2 = normalizeTextLevel2(str);
+            return n2.replace(/[ⵡⵢ]/g, '').replace(/(.)\1+/g, '$1'); 
+        }
+
+        // --- SEARCH EXECUTION ---
+        async function performSearch(query) {
+            const queryClean = query.trim();
+            resultsHeader.style.display = 'block';
+            resultsHeader.textContent = queryClean ? `Results of "${queryClean}"` : `All Songs (${fileList.length})`;
+            
+            resultsContainer.innerHTML = '';
+            loading.style.display = 'block';
+
+            let results = [];
+            const searchInFiles = searchFilesCheck.checked;
+
+            if (!queryClean) {
+                await Promise.all(fileList.map(f => fetchFileContent(f)));
+                for (const filename of fileList) {
+                    results.push({ 
+                        filename, 
+                        title: filename.replace(/\.lrc$/i, ''), 
+                        raw: fileContentsCache[filename] || "", 
+                        score: 0 
+                    });
+                }
+            } else {
+                const words = queryClean.split(/\s+/);
+                const normQuery1 = normalizeText(queryClean);
+                const normQuery2 = normalizeTextLevel2(queryClean);
+                const normQuery3 = normalizeTextLevel3(queryClean);
+                
+                if (searchInFiles) await Promise.all(fileList.map(f => fetchFileContent(f)));
+
+                const containsAllWords = (text, wordArr) => wordArr.length > 0 && wordArr.every(w => text.includes(w));
+
+                for (const filename of fileList) {
+                    const title = filename.replace(/\.lrc$/i, '');
+                    let content = searchInFiles ? await fetchFileContent(filename) : "";
+
+                    const titleLower = title.toLowerCase();
+                    const contentLower = content.toLowerCase();
+                    const queryLower = queryClean.toLowerCase();
+                    const queryWords = words.map(w => w.toLowerCase());
+
+                    let score = 999;
+                    if (titleLower.includes(queryLower)) score = 1;
+                    else if (containsAllWords(titleLower, queryWords)) score = 2;
+                    else if (searchInFiles && contentLower.includes(queryLower)) score = 3;
+                    else if (searchInFiles && containsAllWords(contentLower, queryWords)) score = 4;
+                    else {
+                        const normTitle1 = normalizeText(title);
+                        const normContent1 = searchInFiles ? normalizeText(content) : "";
+                        const normWords1 = words.map(normalizeText);
+
+                        if (normTitle1.includes(normQuery1) || (searchInFiles && normContent1.includes(normQuery1))) score = 5;
+                        else if (containsAllWords(normTitle1, normWords1) || (searchInFiles && containsAllWords(normContent1, normWords1))) score = 6;
+                        else {
+                            const normTitle2 = normalizeTextLevel2(title);
+                            const normContent2 = searchInFiles ? normalizeTextLevel2(content) : "";
+                            const normWords2 = words.map(normalizeTextLevel2);
+                            
+                            if (normTitle2.includes(normQuery2) || (searchInFiles && normContent2.includes(normQuery2))) score = 7;
+                            else if (containsAllWords(normTitle2, normWords2) || (searchInFiles && containsAllWords(normContent2, normWords2))) score = 8;
+                            else {
+                                const normTitle3 = normalizeTextLevel3(title);
+                                const normContent3 = searchInFiles ? normalizeTextLevel3(content) : "";
+                                const normWords3 = words.map(normalizeTextLevel3);
+                                
+                                if (normTitle3.includes(normQuery3) || (searchInFiles && normContent3.includes(normQuery3))) score = 9;
+                                else if (containsAllWords(normTitle3, normWords3) || (searchInFiles && containsAllWords(normContent3, normWords3))) score = 10;
+                            }
+                        }
+                    }
+
+                    if (score < 999) {
+                        if (!content) content = await fetchFileContent(filename);
+                        results.push({ filename, title, raw: content, score });
+                    }
+                }
+            }
+
+            results.sort((a, b) => a.score - b.score);
+            renderResults(results);
+            loading.style.display = 'none';
+            setResultsMaxHeight();
+        }
+
+        // --- UI RENDERERS ---
+        function renderResults(results) {
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<p>No results found.</p>';
+                return;
+            }
+
+            Object.keys(window).forEach(key => { if (key.startsWith('resData_')) delete window[key]; });
+
+            const tempDiv = document.createElement('div');
+            
+            results.forEach((res, index) => {
+                const plainText = stripLrcTags(res.raw);
+                const item = document.createElement('div');
+                item.className = 'result-item';
+
+                item.innerHTML = `
+                    <div class="result-title">${res.title}</div>
+                    <div class="tabs">
+                        <button class="active" onclick="switchTab(${index}, 'plain')">Plain Text</button>
+                        <button onclick="switchTab(${index}, 'synced')">Synced</button>
+                    </div>
+                    <div id="content-${index}" class="content-display"></div>
+                    <div class="actions">
+                        <button class="action-btn play-btn" onclick="openPlayer(${index})">🎵 Play & Sync</button>
+                        <button class="action-btn" id="expand-${index}" onclick="toggleExpand(${index})">Expand File</button>
+                        <button class="action-btn" onclick="copyContent(${index})">Copy</button>
+                    </div>
+                `;
+                tempDiv.appendChild(item);
+
+                window[`resData_${index}`] = {
+                    plain: plainText,
+                    synced: res.raw,
+                    currentTab: 'plain',
+                    expanded: false
+                };
+            });
+            
+            resultsContainer.innerHTML = '';
+            resultsContainer.appendChild(tempDiv);
+            results.forEach((_, index) => updateDisplay(index));
+        }
+
+        // --- RESULTS BEHAVIORS ---
+        window.switchTab = function(index, type) {
+            window[`resData_${index}`].currentTab = type;
+            const item = document.querySelectorAll('.result-item')[index];
+            const btns = item.querySelectorAll('.tabs button');
+            btns[0].classList.toggle('active', type === 'plain');
+            btns[1].classList.toggle('active', type === 'synced');
+            updateDisplay(index);
+        }
+
+        window.toggleExpand = function(index) {
+            window[`resData_${index}`].expanded = !window[`resData_${index}`].expanded;
+            const btn = document.getElementById(`expand-${index}`);
+            btn.textContent = window[`resData_${index}`].expanded ? "Show Less" : "Expand File";
+            updateDisplay(index);
+            setResultsMaxHeight();
+        }
+
+        window.copyContent = function(index) {
+            const data = window[`resData_${index}`];
+            const content = data.currentTab === 'plain' ? data.plain : data.synced;
+            navigator.clipboard.writeText(content).then(() => alert("Copied to clipboard!"));
+        }
+
+        function updateDisplay(index) {
+            const data = window[`resData_${index}`];
+            const contentDiv = document.getElementById(`content-${index}`);
+            if (!contentDiv) return;
+            const fullContent = data.currentTab === 'plain' ? data.plain : data.synced;
+            if (data.expanded) {
+                contentDiv.textContent = fullContent || "No content available.";
+            } else {
+                const lines = fullContent.split('\n').slice(0, 5).join('\n');
+                contentDiv.textContent = lines + (fullContent.split('\n').length > 5 ? '\n...' : '') || "No content available.";
+            }
+        }
+
+        // Accordion logic for Results container
+        function setResultsMaxHeight() {
+            if (!resultsWrapper.classList.contains('collapsed')) {
+                resultsWrapper.style.maxHeight = resultsWrapper.scrollHeight + "px";
+            }
+        }
+        function collapseResults() {
+            resultsWrapper.style.maxHeight = resultsWrapper.scrollHeight + "px"; // capture explicit height first
+            setTimeout(() => { resultsWrapper.classList.add('collapsed'); }, 10);
+            collapseToggle.style.display = 'block';
+        }
+        window.toggleResults = function() {
+            if (resultsWrapper.classList.contains('collapsed')) {
+                resultsWrapper.classList.remove('collapsed');
+                setResultsMaxHeight();
+                collapseToggle.textContent = "⬆ Hide Search Results";
+            } else {
+                collapseResults();
+                collapseToggle.textContent = "⬇ Show Search Results";
+            }
+        }
+
+        // --- PLAYER / LRC SYNC LOGIC ---
+        function parseTimeLRC(str) {
+            if (!str) return 0;
+            const p = str.replace(/[\[\]]/g, '').split(':');
+            return (parseFloat(p[0]) * 60) + parseFloat(p[1]);
+        }
+
+        function extractVideoID(url) {
+            const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+            return match ? match[1] : null;
+        }
+
+        window.openPlayer = function(index) {
+            const data = window[`resData_${index}`];
+            const rawLrc = data.synced;
+            const lines = rawLrc.split('\n');
+            
+            let ytId = null;
+            currentOffset = 0;
+            currentLyricsData = [];
+
+            // 1. Parse lines
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('[youtube:')) {
+                    const contentMatch = trimmed.match(/\[youtube:(.*?)\]/);
+                    if(contentMatch) {
+                        const content = contentMatch[1];
+                        const offM = content.match(/([+-])(\d+:\d+(\.\d+)?)$/);
+                        let url = content;
+                        if (offM) {
+                            url = content.replace(offM[0], '');
+                            currentOffset = parseTimeLRC(offM[2]) * (offM[1] === '-' ? -1 : 1);
+                        }
+                        if(!ytId) ytId = extractVideoID(url); // Pick first valid ID
+                    }
+                } else {
+                    const tsMatch = trimmed.match(/^\[(\d+:\d+\.\d+)\]/);
+                    if (tsMatch) {
+                        const text = trimmed.replace(tsMatch[0], '').trim();
+                        if (text && text !== '.' && text !== '#') {
+                            currentLyricsData.push({ time: parseTimeLRC(tsMatch[1]), text: text });
+                        }
+                    }
+                }
+            });
+
+            // 2. Prepare UI
+            document.getElementById('player-section').style.display = 'block';
+            collapseResults();
+            
+            // 3. Populate Lyrics UI
+            const scroller = document.getElementById('lyrics-scroller');
+            scroller.innerHTML = '';
+            
+            if (currentLyricsData.length === 0) {
+                scroller.innerHTML = '<div class="lyric-line">No synchronized lyrics found.</div>';
+            } else {
+                currentLyricsData.forEach((ld, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'lyric-line';
+                    div.id = 'lyric-' + i;
+                    div.textContent = ld.text;
+                    div.onclick = () => {
+                        if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
+                            ytPlayer.seekTo(ld.time + currentOffset, true);
+                        }
+                    };
+                    scroller.appendChild(div);
+                });
+            }
+
+            // 4. Load YouTube Video
+            if (ytId && isPlayerReady) {
+                ytPlayer.loadVideoById(ytId);
+            } else if (!ytId) {
+                // If no YT link is embedded, inform the user
+                if(isPlayerReady) ytPlayer.stopVideo();
+                scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No [youtube:...] tag found in this file.</div>' + scroller.innerHTML;
+            }
+
+            // 5. Start Sync Loop
+            startSync();
+            
+            // Scroll user up to player
+            window.scrollTo({ top: document.getElementById('player-section').offsetTop - 20, behavior: 'smooth' });
+        }
+
+        function startSync() {
+            clearInterval(syncInterval);
+            syncInterval = setInterval(() => {
+                if (!isPlayerReady || typeof ytPlayer.getCurrentTime !== 'function') return;
+                
+                // Get Current Video Time + apply offset parsed from LRC
+                const currentTime = ytPlayer.getCurrentTime() - currentOffset;
+                
+                let activeIdx = -1;
+                for (let i = 0; i < currentLyricsData.length; i++) {
+                    if (currentTime >= currentLyricsData[i].time) {
+                        activeIdx = i;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (activeIdx !== -1) {
+                    const activeEls = document.querySelectorAll('.lyric-line.active');
+                    const targetEl = document.getElementById('lyric-' + activeIdx);
+                    
+                    // Only update DOM if the active line changed
+                    if (targetEl && !targetEl.classList.contains('active')) {
+                        activeEls.forEach(el => el.classList.remove('active'));
+                        targetEl.classList.add('active');
+                        
+                        // Auto Scroll exactly under the video (Centered in container)
+                        const scroller = document.getElementById('lyrics-scroller');
+                        const targetPos = targetEl.offsetTop - scroller.offsetTop - (scroller.clientHeight / 2) + (targetEl.clientHeight / 2);
+                        scroller.scrollTop = targetPos;
+                    }
+                }
+            }, 150); // Refresh highly frequently for smooth sync
+        }
+
+        // --- EVENT LISTENERS ---
+        let debounceTimer;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { performSearch(e.target.value); }, 400); 
+        });
+        searchFilesCheck.addEventListener('change', () => performSearch(searchInput.value));
+
+        // Init App
+        loadFileList();
+    </script>
+</body>
+</html>
