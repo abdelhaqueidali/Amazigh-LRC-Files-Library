@@ -1,16 +1,19 @@
 <!DOCTYPE html>
-<html lang="zgh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lyrics Library & Player</title>
     <style>
         :root {
-            --bg-color: #f9f9fa;
-            --text-color: #333;
-            --primary: #0066cc;
+            /* Dark Mode Variables */
+            --bg-color: #121212;
+            --text-color: #e2e8f0;
+            --primary: #3b82f6;
             --accent: #38bdf8;
-            --border: #ccc;
+            --border: #334155;
+            --item-bg: #1e293b;
+            --content-bg: #0f172a;
         }
         body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -25,6 +28,9 @@
             align-items: center;
             justify-content: flex-start;
         }
+        a {
+            color: var(--accent);
+        }
         .search-container {
             text-align: center;
             width: 100%;
@@ -36,6 +42,8 @@
             width: 100%;
             padding: 12px 20px;
             font-size: 18px;
+            background: var(--item-bg);
+            color: var(--text-color);
             border: 2px solid var(--border);
             border-radius: 25px;
             outline: none;
@@ -50,69 +58,10 @@
             font-size: 14px;
         }
 
-        /* --- PLAYER SECTION --- */
-        #player-section {
-            display: none;
-            width: 100%;
-            max-width: 600px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            overflow: hidden;
-            margin-bottom: 30px;
-            border: 1px solid var(--border);
-        }
-        .video-wrapper {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-            background: #000;
-        }
-        .video-wrapper iframe {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            border: none;
-        }
-        .lyrics-scroller {
-            height: 350px;
-            overflow-y: auto;
-            padding: 40px 20px;
-            background: #fff;
-            text-align: center;
-            position: relative;
-            scroll-behavior: smooth;
-        }
-        /* Hide scrollbar for cleaner look */
-        .lyrics-scroller::-webkit-scrollbar { width: 6px; }
-        .lyrics-scroller::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-        
-        .lyric-line {
-            font-size: 18px;
-            padding: 10px 0;
-            color: #94a3b8;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            min-height: 24px;
-        }
-        .lyric-line:hover {
-            color: #64748b;
-        }
-        .lyric-line.active {
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--primary);
-            transform: scale(1.05);
-            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        /* --- RESULTS SECTION --- */
-        #results-container {
-            width: 100%;
-            max-width: 800px;
-        }
         .collapse-toggle {
             display: none;
             width: 100%;
+            max-width: 600px;
             background: var(--primary);
             color: white;
             padding: 12px;
@@ -121,12 +70,18 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         .collapse-toggle:hover {
-            background: #005bb5;
+            background: #2563eb;
+        }
+
+        #results-container {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
         }
         #results-wrapper {
             transition: max-height 0.4s ease-in-out;
@@ -147,26 +102,31 @@
             font-weight: bold;
         }
         .result-item {
-            background: white;
+            background: var(--item-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .result-title {
             font-size: 18px;
             font-weight: bold;
             margin-bottom: 10px;
-            color: var(--primary);
+            color: var(--accent);
         }
         .tabs { margin-bottom: 10px; }
         .tabs button {
-            background: none;
+            background: transparent;
+            color: var(--text-color);
             border: 1px solid var(--border);
             padding: 5px 10px;
             cursor: pointer;
             border-radius: 4px;
             margin-right: 5px;
+            transition: 0.2s;
+        }
+        .tabs button:hover {
+            background: rgba(255,255,255,0.05);
         }
         .tabs button.active {
             background: var(--primary);
@@ -174,7 +134,7 @@
             border-color: var(--primary);
         }
         .content-display {
-            background: #f4f4f4;
+            background: var(--content-bg);
             padding: 10px;
             border-radius: 4px;
             font-family: monospace;
@@ -182,6 +142,12 @@
             font-size: 14px;
             line-height: 1.5;
             position: relative;
+            cursor: pointer; 
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+        .content-display:hover {
+            border-color: var(--border);
         }
         .actions {
             margin-top: 10px;
@@ -190,22 +156,125 @@
             flex-wrap: wrap;
         }
         .action-btn {
-            background: #e0e0e0;
+            background: #334155;
+            color: #f1f5f9;
             border: none;
             padding: 8px 16px;
             cursor: pointer;
             border-radius: 4px;
             font-size: 13px;
             font-weight: bold;
+            transition: 0.2s;
         }
-        .action-btn:hover { background: #d0d0d0; }
+        .action-btn:hover { background: #475569; }
         .play-btn {
             background: var(--primary);
             color: white;
         }
-        .play-btn:hover { background: #005bb5; }
-        .loading { display: none; margin-top: 20px; font-weight: bold; }
+        .play-btn:hover { background: #2563eb; }
 
+        #player-section {
+            display: none;
+            width: 100%;
+            max-width: 600px;
+            background: var(--item-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+        }
+        .version-bar {
+            display: none;
+            padding: 15px;
+            background: var(--content-bg);
+            border-bottom: 1px solid var(--border);
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .version-btn {
+            background: #334155;
+            color: #cbd5e1;
+        }
+        .version-btn.active {
+            background: var(--accent);
+            color: white;
+        }
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; 
+            background: #000;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: none;
+        }
+        
+        .player-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--content-bg);
+            border-bottom: 1px solid var(--border);
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+        .checkbox-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .lyrics-scroller {
+            height: 350px;
+            overflow-y: auto;
+            padding: 40px 20px;
+            background: var(--item-bg);
+            text-align: center;
+            position: relative;
+            scroll-behavior: smooth;
+        }
+        .lyrics-scroller::-webkit-scrollbar { width: 6px; }
+        .lyrics-scroller::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        
+        .lyric-line {
+            font-size: 18px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            color: #94a3b8;
+            /* Drastically reduced transition time for snappier response */
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            min-height: 24px;
+            border-radius: 8px;
+            transform-origin: center center;
+        }
+        .lyric-line:hover {
+            color: #e2e8f0;
+            background-color: rgba(255,255,255,0.05);
+        }
+        .lyric-line.active {
+            transform: scale(1.06); 
+            color: var(--accent);
+            background-color: rgba(56, 189, 248, 0.1);
+            text-shadow: 
+                0.3px 0 0 var(--accent), 
+                -0.3px 0 0 var(--accent), 
+                0 1px 2px rgba(0,0,0,0.5);
+        }
+        .loading { display: none; margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -223,27 +292,35 @@
         </div>
     </div>
 
-    <div id="player-section">
-        <div class="video-wrapper">
-            <div id="yt-player-target"></div>
-        </div>
-        <div class="lyrics-scroller" id="lyrics-scroller">
-            </div>
-    </div>
-
     <div class="loading" id="loading">Searching...</div>
-    
+
+    <button class="collapse-toggle" id="collapse-toggle" onclick="toggleResults()">⬇ Show Search Results</button>
     <div id="results-container">
-        <button class="collapse-toggle" id="collapse-toggle" onclick="toggleResults()">⬇ Show Search Results</button>
         <div id="results-wrapper">
             <div id="results-header"></div>
             <div id="results"></div>
         </div>
     </div>
 
+    <div id="player-section">
+        <div class="version-bar" id="version-bar"></div>
+        <div class="video-wrapper">
+            <div id="yt-player-target"></div>
+        </div>
+        
+        <div class="player-controls">
+            <button class="action-btn play-btn" onclick="restartVideo()">⏮ Restart Song</button>
+            <label class="checkbox-label">
+                <input type="checkbox" id="latin-toggle" onchange="toggleLatinScript()"> Latin (Romanized)
+            </label>
+        </div>
+
+        <div class="lyrics-scroller" id="lyrics-scroller">
+        </div>
+    </div>
+
     <script src="https://www.youtube.com/iframe_api"></script>
     <script>
-        // --- SEARCH LOGIC VARIABLES ---
         const searchInput = document.getElementById('search-input');
         const searchFilesCheck = document.getElementById('search-files-check');
         const resultsHeader = document.getElementById('results-header');
@@ -251,6 +328,7 @@
         const resultsWrapper = document.getElementById('results-wrapper');
         const loading = document.getElementById('loading');
         const collapseToggle = document.getElementById('collapse-toggle');
+        const latinToggle = document.getElementById('latin-toggle');
 
         let fileList = [];
         let fileContentsCache = {};
@@ -262,7 +340,38 @@
         let currentOffset = 0;
         let syncInterval;
 
-        // YouTube API Init
+        // --- AUTO-SCROLL PAUSE VARIABLES ---
+        let userScrollTimer = null;
+        let isUserInteracting = false;
+        let lastAutoScrolledIndex = -1;
+
+        // --- TRANSLITERATION MAPPING ---
+        const amazighToLatinMap = {
+            'ⴰ': 'a', 'ⴱ': 'b', 'ⴳ': 'g', 'ⴷ': 'd', 'ⴹ': 'ḍ', 'ⴻ': 'e',
+            'ⴼ': 'f', 'ⴽ': 'k', 'ⵀ': 'h', 'ⵃ': 'ḥ', 'ⵄ': 'ɛ', 'ⵅ': 'x',
+            'ⵇ': 'q', 'ⵉ': 'i', 'ⵊ': 'j', 'ⵍ': 'l', 'ⵎ': 'm', 'ⵏ': 'n',
+            'ⵓ': 'u', 'ⵔ': 'r', 'ⵕ': 'ṛ', 'ⵖ': 'ɣ', 'ⵙ': 's', 'ⵚ': 'ṣ',
+            'ⵛ': 'c', 'ⵜ': 't', 'ⵟ': 'ṭ', 'ⵡ': 'w', 'ⵢ': 'y', 'ⵣ': 'z',
+            'ⵥ': 'ẓ', 'ⵯ': 'ʷ'
+        };
+
+        if (localStorage.getItem('preferLatin') === 'true') {
+            latinToggle.checked = true;
+        }
+
+        const lyricsScrollerEl = document.getElementById('lyrics-scroller');
+        function handleUserScrollIntent() {
+            isUserInteracting = true;
+            clearTimeout(userScrollTimer);
+            userScrollTimer = setTimeout(() => {
+                isUserInteracting = false;
+                lastAutoScrolledIndex = -1; 
+            }, 5000);
+        }
+        lyricsScrollerEl.addEventListener('wheel', handleUserScrollIntent, { passive: true });
+        lyricsScrollerEl.addEventListener('touchmove', handleUserScrollIntent, { passive: true });
+        lyricsScrollerEl.addEventListener('mousedown', handleUserScrollIntent, { passive: true });
+
         function onYouTubeIframeAPIReady() {
             ytPlayer = new YT.Player('yt-player-target', {
                 height: '360',
@@ -273,7 +382,6 @@
             });
         }
 
-        // --- CORE DATA LOADING ---
         async function loadFileList() {
             try {
                 const response = await fetch('data.txt');
@@ -300,7 +408,6 @@
             }
         }
 
-        // --- NORMALIZATION HELPERS ---
         function stripLrcTags(text) {
             if (!text) return "";
             return text.split(/\r?\n/)
@@ -344,7 +451,6 @@
             return n2.replace(/[ⵡⵢ]/g, '').replace(/(.)\1+/g, '$1'); 
         }
 
-        // --- SEARCH EXECUTION ---
         async function performSearch(query) {
             const queryClean = query.trim();
             resultsHeader.style.display = 'block';
@@ -425,10 +531,15 @@
             results.sort((a, b) => a.score - b.score);
             renderResults(results);
             loading.style.display = 'none';
+
+            if (resultsWrapper.classList.contains('collapsed')) {
+                resultsWrapper.classList.remove('collapsed');
+                collapseToggle.textContent = "⬆ Hide Search Results";
+            }
+
             setResultsMaxHeight();
         }
 
-        // --- UI RENDERERS ---
         function renderResults(results) {
             if (results.length === 0) {
                 resultsContainer.innerHTML = '<p>No results found.</p>';
@@ -450,10 +561,9 @@
                         <button class="active" onclick="switchTab(${index}, 'plain')">Plain Text</button>
                         <button onclick="switchTab(${index}, 'synced')">Synced</button>
                     </div>
-                    <div id="content-${index}" class="content-display"></div>
+                    <div id="content-${index}" class="content-display" onclick="toggleExpand(${index})" title="Tap to expand/collapse"></div>
                     <div class="actions">
                         <button class="action-btn play-btn" onclick="openPlayer(${index})">🎵 Play & Sync</button>
-                        <button class="action-btn" id="expand-${index}" onclick="toggleExpand(${index})">Expand File</button>
                         <button class="action-btn" onclick="copyContent(${index})">Copy</button>
                     </div>
                 `;
@@ -472,7 +582,6 @@
             results.forEach((_, index) => updateDisplay(index));
         }
 
-        // --- RESULTS BEHAVIORS ---
         window.switchTab = function(index, type) {
             window[`resData_${index}`].currentTab = type;
             const item = document.querySelectorAll('.result-item')[index];
@@ -484,8 +593,6 @@
 
         window.toggleExpand = function(index) {
             window[`resData_${index}`].expanded = !window[`resData_${index}`].expanded;
-            const btn = document.getElementById(`expand-${index}`);
-            btn.textContent = window[`resData_${index}`].expanded ? "Show Less" : "Expand File";
             updateDisplay(index);
             setResultsMaxHeight();
         }
@@ -505,22 +612,37 @@
                 contentDiv.textContent = fullContent || "No content available.";
             } else {
                 const lines = fullContent.split('\n').slice(0, 5).join('\n');
-                contentDiv.textContent = lines + (fullContent.split('\n').length > 5 ? '\n...' : '') || "No content available.";
+                contentDiv.textContent = lines + (fullContent.split('\n').length > 5 ? '\n... (Tap to expand)' : '') || "No content available.";
             }
         }
 
-        // Accordion logic for Results container
         function setResultsMaxHeight() {
             if (!resultsWrapper.classList.contains('collapsed')) {
                 resultsWrapper.style.maxHeight = resultsWrapper.scrollHeight + "px";
             }
         }
+
+        function collapseAllExpandedLyrics() {
+            let i = 0;
+            while (window[`resData_${i}`]) {
+                if (window[`resData_${i}`].expanded) {
+                    window[`resData_${i}`].expanded = false;
+                    updateDisplay(i);
+                }
+                i++;
+            }
+            setResultsMaxHeight();
+        }
+
         function collapseResults() {
-            resultsWrapper.style.maxHeight = resultsWrapper.scrollHeight + "px"; // capture explicit height first
+            resultsWrapper.style.maxHeight = resultsWrapper.scrollHeight + "px"; 
             setTimeout(() => { resultsWrapper.classList.add('collapsed'); }, 10);
             collapseToggle.style.display = 'block';
         }
+
         window.toggleResults = function() {
+            collapseAllExpandedLyrics();
+            
             if (resultsWrapper.classList.contains('collapsed')) {
                 resultsWrapper.classList.remove('collapsed');
                 setResultsMaxHeight();
@@ -531,11 +653,11 @@
             }
         }
 
-        // --- PLAYER / LRC SYNC LOGIC ---
         function parseTimeLRC(str) {
             if (!str) return 0;
-            const p = str.replace(/[\[\]]/g, '').split(':');
-            return (parseFloat(p[0]) * 60) + parseFloat(p[1]);
+            const p = str.replace(/[\[\]]/g, '').trim().split(':');
+            if (p.length === 1) return parseFloat(p[0]) || 0;
+            return (parseFloat(p[0]) * 60) + (parseFloat(p[1]) || 0);
         }
 
         function extractVideoID(url) {
@@ -543,93 +665,179 @@
             return match ? match[1] : null;
         }
 
+        window.switchVideoVersion = function(ytId, offset, btnIndex) {
+            currentOffset = offset;
+            
+            const buttons = document.querySelectorAll('.version-btn');
+            buttons.forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === btnIndex);
+            });
+
+            if (ytId && isPlayerReady) {
+                let firstLyricTime = currentLyricsData.length > 0 ? currentLyricsData[0].time : 0;
+                let startPos = Math.max(0, firstLyricTime + currentOffset);
+                
+                ytPlayer.loadVideoById({
+                    videoId: ytId,
+                    startSeconds: startPos
+                });
+            }
+            startSync();
+        }
+        
+        function transliterate(text) {
+            return text.split('').map(char => amazighToLatinMap[char] || char).join('');
+        }
+
+        window.toggleLatinScript = function() {
+            const isChecked = latinToggle.checked;
+            localStorage.setItem('preferLatin', isChecked);
+            
+            const lines = document.querySelectorAll('.lyric-line');
+            lines.forEach((lineEl, i) => {
+                if(currentLyricsData[i]) {
+                    lineEl.textContent = isChecked ? transliterate(currentLyricsData[i].text) : currentLyricsData[i].text;
+                }
+            });
+        }
+
+        window.restartVideo = function() {
+            if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
+                ytPlayer.seekTo(0, true);
+                
+                isUserInteracting = false;
+                clearTimeout(userScrollTimer);
+                lastAutoScrolledIndex = -1;
+            }
+        }
+
         window.openPlayer = function(index) {
+            collapseAllExpandedLyrics();
+
             const data = window[`resData_${index}`];
             const rawLrc = data.synced;
             const lines = rawLrc.split('\n');
             
-            let ytId = null;
-            currentOffset = 0;
+            let parsedYTLinks = [];
             currentLyricsData = [];
+            currentOffset = 0;
 
-            // 1. Parse lines
             lines.forEach(line => {
                 const trimmed = line.trim();
+                
                 if (trimmed.startsWith('[youtube:')) {
-                    const contentMatch = trimmed.match(/\[youtube:(.*?)\]/);
-                    if(contentMatch) {
-                        const content = contentMatch[1];
-                        const offM = content.match(/([+-])(\d+:\d+(\.\d+)?)$/);
-                        let url = content;
-                        if (offM) {
-                            url = content.replace(offM[0], '');
-                            currentOffset = parseTimeLRC(offM[2]) * (offM[1] === '-' ? -1 : 1);
+                    const closeIdx = trimmed.indexOf(']');
+                    if (closeIdx !== -1) {
+                        const url = trimmed.substring(9, closeIdx).trim();
+                        const afterTag = trimmed.substring(closeIdx + 1).trim();
+                        let offset = 0;
+
+                        const offMatch = afterTag.match(/^([+\-\u2012-\u2015])\s*\[?(\d+(?::\d+)?(?:\.\d+)?)\]?/);
+                        if (offMatch) {
+                            const isMinus = offMatch[1] !== '+';
+                            offset = parseTimeLRC(offMatch[2]) * (isMinus ? -1 : 1);
                         }
-                        if(!ytId) ytId = extractVideoID(url); // Pick first valid ID
+
+                        const ytId = extractVideoID(url);
+                        if (ytId) {
+                            parsedYTLinks.push({ id: ytId, offset: offset });
+                        }
                     }
-                } else {
-                    const tsMatch = trimmed.match(/^\[(\d+:\d+\.\d+)\]/);
-                    if (tsMatch) {
-                        const text = trimmed.replace(tsMatch[0], '').trim();
-                        if (text && text !== '.' && text !== '#') {
-                            currentLyricsData.push({ time: parseTimeLRC(tsMatch[1]), text: text });
-                        }
+                } 
+                else if (trimmed.match(/^\[\d+:\d+(?:\.\d+)?\]/)) {
+                    const timeRegex = /\[(\d+:\d+(?:\.\d+)?)\]/g;
+                    let match;
+                    let times = [];
+                    while ((match = timeRegex.exec(trimmed)) !== null) {
+                        times.push(parseTimeLRC(match[1]));
+                    }
+                    
+                    const text = trimmed.replace(/\[.*?\]/g, '').trim();
+                    if (text && text !== '.' && text !== '#') {
+                        times.forEach(t => {
+                            currentLyricsData.push({ time: t, text: text });
+                        });
                     }
                 }
             });
 
-            // 2. Prepare UI
-            document.getElementById('player-section').style.display = 'block';
-            collapseResults();
+            currentLyricsData.sort((a, b) => a.time - b.time);
+
+            const playerSection = document.getElementById('player-section');
+            const versionBar = document.getElementById('version-bar');
             
-            // 3. Populate Lyrics UI
+            playerSection.style.display = 'block';
+            collapseResults(); 
+            
+            versionBar.innerHTML = '';
+            if (parsedYTLinks.length > 1) {
+                versionBar.style.display = 'flex';
+                parsedYTLinks.forEach((linkData, i) => {
+                    const btn = document.createElement('button');
+                    btn.className = `action-btn version-btn ${i === 0 ? 'active' : ''}`;
+                    btn.textContent = `Play ${i + 1}`;
+                    btn.onclick = () => switchVideoVersion(linkData.id, linkData.offset, i);
+                    versionBar.appendChild(btn);
+                });
+            } else {
+                versionBar.style.display = 'none';
+            }
+
             const scroller = document.getElementById('lyrics-scroller');
             scroller.innerHTML = '';
             
             if (currentLyricsData.length === 0) {
                 scroller.innerHTML = '<div class="lyric-line">No synchronized lyrics found.</div>';
             } else {
+                const useLatin = latinToggle.checked;
                 currentLyricsData.forEach((ld, i) => {
                     const div = document.createElement('div');
                     div.className = 'lyric-line';
                     div.id = 'lyric-' + i;
-                    div.textContent = ld.text;
+                    div.textContent = useLatin ? transliterate(ld.text) : ld.text;
                     div.onclick = () => {
                         if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
                             ytPlayer.seekTo(ld.time + currentOffset, true);
+                            
+                            isUserInteracting = false;
+                            clearTimeout(userScrollTimer);
+                            lastAutoScrolledIndex = -1;
                         }
                     };
                     scroller.appendChild(div);
                 });
             }
 
-            // 4. Load YouTube Video
-            if (ytId && isPlayerReady) {
-                ytPlayer.loadVideoById(ytId);
-            } else if (!ytId) {
-                // If no YT link is embedded, inform the user
+            if (parsedYTLinks.length > 0) {
+                switchVideoVersion(parsedYTLinks[0].id, parsedYTLinks[0].offset, 0);
+            } else {
                 if(isPlayerReady) ytPlayer.stopVideo();
                 scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No [youtube:...] tag found in this file.</div>' + scroller.innerHTML;
             }
 
-            // 5. Start Sync Loop
-            startSync();
-            
-            // Scroll user up to player
-            window.scrollTo({ top: document.getElementById('player-section').offsetTop - 20, behavior: 'smooth' });
+            window.scrollTo({ top: playerSection.offsetTop - 20, behavior: 'smooth' });
         }
 
         function startSync() {
             clearInterval(syncInterval);
+            
+            isUserInteracting = false;
+            clearTimeout(userScrollTimer);
+            lastAutoScrolledIndex = -1;
+
+            // Sped up to check every 50ms instead of 150ms
             syncInterval = setInterval(() => {
                 if (!isPlayerReady || typeof ytPlayer.getCurrentTime !== 'function') return;
                 
-                // Get Current Video Time + apply offset parsed from LRC
                 const currentTime = ytPlayer.getCurrentTime() - currentOffset;
+                
+                // Add a 150ms anticipation offset to highlight slightly early
+                const anticipationOffset = 0.15; 
                 
                 let activeIdx = -1;
                 for (let i = 0; i < currentLyricsData.length; i++) {
-                    if (currentTime >= currentLyricsData[i].time) {
+                    // Check against time minus the anticipation offset
+                    if (currentTime >= currentLyricsData[i].time - anticipationOffset) {
                         activeIdx = i;
                     } else {
                         break;
@@ -637,24 +845,26 @@
                 }
 
                 if (activeIdx !== -1) {
-                    const activeEls = document.querySelectorAll('.lyric-line.active');
                     const targetEl = document.getElementById('lyric-' + activeIdx);
                     
-                    // Only update DOM if the active line changed
                     if (targetEl && !targetEl.classList.contains('active')) {
+                        const activeEls = document.querySelectorAll('.lyric-line.active');
                         activeEls.forEach(el => el.classList.remove('active'));
                         targetEl.classList.add('active');
-                        
-                        // Auto Scroll exactly under the video (Centered in container)
-                        const scroller = document.getElementById('lyrics-scroller');
-                        const targetPos = targetEl.offsetTop - scroller.offsetTop - (scroller.clientHeight / 2) + (targetEl.clientHeight / 2);
-                        scroller.scrollTop = targetPos;
+                    }
+
+                    if (!isUserInteracting && lastAutoScrolledIndex !== activeIdx) {
+                        if (targetEl) {
+                            const scroller = document.getElementById('lyrics-scroller');
+                            const targetPos = targetEl.offsetTop - (scroller.clientHeight / 2) + (targetEl.clientHeight / 2);
+                            scroller.scrollTop = targetPos;
+                            lastAutoScrolledIndex = activeIdx;
+                        }
                     }
                 }
-            }, 150); // Refresh highly frequently for smooth sync
+            }, 50); 
         }
 
-        // --- EVENT LISTENERS ---
         let debounceTimer;
         searchInput.addEventListener('input', (e) => {
             clearTimeout(debounceTimer);
@@ -662,7 +872,6 @@
         });
         searchFilesCheck.addEventListener('change', () => performSearch(searchInput.value));
 
-        // Init App
         loadFileList();
     </script>
 </body>
