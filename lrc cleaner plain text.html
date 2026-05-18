@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LRC Cleaner</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            background-color: #fafafa;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            background-color: #fff;
+        }
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.secondary {
+            background-color: #2ecc71;
+        }
+        button.secondary:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>LRC Cleaner</h1>
+
+    <div class="container">
+        <label for="lrc-input"><strong>1. Paste your LRC lyrics here:</strong></label>
+        <textarea id="lrc-input" placeholder="[ti:Song Title]&#10;[ar:Artist]&#10;[00:12.00]Paste your LRC text here..."></textarea>
+        
+        <div class="buttons">
+            <button onclick="cleanLRC()">Clean Lyrics</button>
+        </div>
+
+        <label for="lrc-output"><strong>2. Plain Text Output:</strong></label>
+        <textarea id="lrc-output" readonly placeholder="Cleaned plain text will appear here..."></textarea>
+        
+        <div class="buttons">
+            <button class="secondary" onclick="copyText()" id="copy-btn">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        function cleanLRC() {
+            const input = document.getElementById('lrc-input').value;
+            
+            // Split the input text into an array of lines
+            const lines = input.split('\n');
+            
+            // Process each line
+            const cleanedLines = lines.map(line => {
+                // Regex explanation: 
+                // /\[.*?\]/g removes everything between square brackets (e.g., [00:12.00] or [ar:Artist])
+                // /<.*?>/g removes everything between angle brackets used in enhanced LRC format
+                let cleaned = line.replace(/\[.*?\]/g, '').replace(/<.*?>/g, '');
+                
+                // Trim trailing and leading whitespace
+                return cleaned.trim();
+            }).filter(line => line.length > 0); // Remove any lines that are now completely empty
+            
+            // Join the cleaned lines back together and output
+            document.getElementById('lrc-output').value = cleanedLines.join('\n');
+        }
+
+        function copyText() {
+            const output = document.getElementById('lrc-output');
+            if (!output.value) return; // Do nothing if there's no text
+            
+            navigator.clipboard.writeText(output.value).then(() => {
+                const btn = document.getElementById('copy-btn');
+                const originalText = btn.innerText;
+                
+                // Give visual feedback
+                btn.innerText = 'Copied!';
+                btn.style.backgroundColor = '#27ae60';
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.backgroundColor = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Your browser blocked the copy action. Please copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>
