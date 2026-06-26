@@ -248,7 +248,6 @@
             margin-bottom: 15px;
         }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        /* --------------------------------- */
         
         .player-controls {
             display: flex;
@@ -373,19 +372,16 @@
         let fileList = [];
         let fileContentsCache = {};
 
-        // --- PLAYER LOGIC VARIABLES ---
         let ytPlayer;
         let isPlayerReady = false;
         let currentLyricsData = [];
         let currentOffset = 0;
         let syncInterval;
 
-        // --- AUTO-SCROLL PAUSE VARIABLES ---
         let userScrollTimer = null;
         let isUserInteracting = false;
         let lastAutoScrolledIndex = -1;
 
-        // --- TRANSLITERATION MAPPINGS ---
         const amazighToLatinMap = {
             'ⴰ': 'a', 'ⴱ': 'b', 'ⴳ': 'g', 'ⴷ': 'd', 'ⴹ': 'ḍ', 'ⴻ': 'e',
             'ⴼ': 'f', 'ⴽ': 'k', 'ⵀ': 'h', 'ⵃ': 'ḥ', 'ⵄ': 'ɛ', 'ⵅ': 'x',
@@ -463,15 +459,9 @@
         }
 
         function cleanLyricsLine(line) {
-            // 1. Completely strip out any explicit angle bracket tags <...>
             let cleaned = line.replace(/<[^>]*>/g, '');
-            
-            // 2. Scrub standalone offset flags like [-00:03.00] or [+00:02:15] at start of lines
             cleaned = cleaned.replace(/^[+\-\u2012-\u2015]\s*\[?\d+(?::\d+)?(?:\.\d+)?\]?/g, '');
-            
-            // 3. Strip non-timestamp metadata bracket arrays ([lang:...], [yt:...])
             cleaned = cleaned.replace(/\[(?!\s*-?\s*\d+:\d+)[^\]]*\]/g, '');
-            
             return cleaned.trim();
         }
 
@@ -480,7 +470,6 @@
             return text.split(/\r?\n/)
                 .map(line => {
                     let cleaned = cleanLyricsLine(line);
-                    // Drop layout sync timestamps for clean text visualization
                     return cleaned.replace(/\[-?\d+:\d+(?:\.\d+)?\]/g, '').trim();
                 })
                 .filter(line => line.length > 0 && line !== '.' && line !== '#') 
@@ -496,7 +485,7 @@
                 .replace(/(^|\s)ⵢⵉ/g, '$1ⵉ')      
                 .replace(/ⵕ/g, 'ⵔ')
                 .replace(/ⵯ/g, '')
-                .replace(/ⵚ/g, 'ⵙ')
+                .replace(/ⵚ/g, '散')
                 .replace(/ⵥ/g, 'ⵣ')
                 .replace(/ⴹ/g, 'ⴷ')
                 .replace(/ⵟ/g, 'ⵜ')
@@ -635,7 +624,6 @@
             results.forEach((res, index) => {
                 const plainText = stripLrcTags(res.raw);
                 
-                // Clean line layouts but leave true core timing values untouched
                 const cleanedSynced = res.raw.split(/\r?\n/)
                     .map(line => cleanLyricsLine(line))
                     .filter(l => l.length > 0 && l !== '.' && l !== '#')
@@ -833,13 +821,12 @@
             lines.forEach(line => {
                 const trimmed = line.trim();
                 
-                if (trimmed.startsWith('[youtube:') || trimmed.startsWith('[yt:')) {
+                // Matches [yt:...], [yt_2:...], [youtube:...] etc.
+                if (trimmed.match(/^\[(youtube|yt(_\d+)?):/)) {
                     const closeIdx = trimmed.indexOf(']');
                     if (closeIdx !== -1) {
-                        // Extract base URL string
-                        const isShortTag = trimmed.startsWith('[yt:');
-                        const prefixLen = isShortTag ? 4 : 9;
-                        const url = trimmed.substring(prefixLen, closeIdx).trim();
+                        const openIdx = trimmed.indexOf(':');
+                        const url = trimmed.substring(openIdx + 1, closeIdx).trim();
                         const afterTag = trimmed.substring(closeIdx + 1).trim();
                         let offset = 0;
 
@@ -888,7 +875,7 @@
                 parsedYTLinks.forEach((linkData, i) => {
                     const btn = document.createElement('button');
                     btn.className = `action-btn version-btn ${i === 0 ? 'active' : ''}`;
-                    btn.textContent = `Play ${i + 1}`;
+                    btn.textContent = `Version ${i + 1}`;
                     btn.onclick = () => switchVideoVersion(linkData.id, linkData.offset, i);
                     versionBar.appendChild(btn);
                 });
@@ -925,7 +912,7 @@
             } else {
                 if(isPlayerReady) ytPlayer.stopVideo();
                 document.getElementById('player-loader').classList.add('hidden');
-                scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No video link found in this file.</div>' + scroller.innerHTML;
+                scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No video link tag ([yt:...], [yt_2:...], [youtube:...]) found in this file.</div>' + scroller.innerHTML;
             }
 
             window.scrollTo({ top: playerSection.offsetTop - 20, behavior: 'smooth' });
