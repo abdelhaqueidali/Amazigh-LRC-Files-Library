@@ -464,11 +464,23 @@
             }
         }
 
+        function cleanLyricsLine(line) {
+            // 1. Remove all angle bracket tags <...> completely
+            let cleaned = line.replace(/<[^>]*>/g, '');
+            // 2. Remove non-timestamp square bracket structures like [lang:xyz], [sp:link], etc.
+            // This leaves timestamps like [00:33.00] or [-00:12.50] untouched.
+            cleaned = cleaned.replace(/\[(?!\s*-?\s*\d+:\d+)[^\]]*\]/g, '');
+            return cleaned.trim();
+        }
+
         function stripLrcTags(text) {
             if (!text) return "";
             return text.split(/\r?\n/)
-                .filter(line => /^\[.+?\]/.test(line.trim())) 
-                .map(line => line.replace(/\[.*?\]/g, '').trim()) 
+                .map(line => {
+                    let cleaned = cleanLyricsLine(line);
+                    // Strip remaining timing tags for plain text display
+                    return cleaned.replace(/\[-?\d+:\d+(?:\.\d+)?\]/g, '').trim();
+                })
                 .filter(line => line.length > 0) 
                 .join('\n'); 
         }
@@ -620,6 +632,10 @@
             
             results.forEach((res, index) => {
                 const plainText = stripLrcTags(res.raw);
+                
+                // For previewing synced tab, clean lines of metadata tags but leave timestamps
+                const cleanedSynced = res.raw.split(/\r?\n/).map(line => cleanLyricsLine(line)).filter(l => l.length > 0).join('\n');
+
                 const item = document.createElement('div');
                 item.className = 'result-item';
 
@@ -643,7 +659,8 @@
 
                 window[`resData_${index}`] = {
                     plain: plainText,
-                    synced: res.raw,
+                    synced: cleanedSynced,
+                    originalRaw: res.raw, // preserve for openPlayer matching rules
                     currentTab: 'plain',
                     expanded: false,
                     showLatin: false
@@ -745,7 +762,10 @@
             if (!str) return 0;
             const p = str.replace(/[\[\]]/g, '').trim().split(':');
             if (p.length === 1) return parseFloat(p[0]) || 0;
-            return (parseFloat(p[0]) * 60) + (parseFloat(p[1]) || 0);
+            let val = (parseFloat(p[0]) * 60) + (parseFloat(p[1]) || 0);
+            // Handle negative offset formatting if present
+            if (str.includes('-') && val > 0) val = -val;
+            return val;
         }
 
         function extractVideoID(url) {
@@ -754,9 +774,7 @@
         }
 
         window.switchVideoVersion = function(ytId, offset, btnIndex) {
-            // Show loader when switching versions
             document.getElementById('player-loader').classList.remove('hidden');
-            
             currentOffset = offset;
             
             const buttons = document.querySelectorAll('.version-btn');
@@ -791,7 +809,6 @@
         window.restartVideo = function() {
             if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
                 ytPlayer.seekTo(0, true);
-                
                 isUserInteracting = false;
                 clearTimeout(userScrollTimer);
                 lastAutoScrolledIndex = -1;
@@ -802,7 +819,7 @@
             collapseAllExpandedLyrics();
 
             const data = window[`resData_${index}`];
-            const rawLrc = data.synced;
+            const rawLrc = data.originalRaw;
             const lines = rawLrc.split('\n');
             
             let parsedYTLinks = [];
@@ -831,15 +848,18 @@
                         }
                     }
                 } 
-                else if (trimmed.match(/^\[\d+:\d+(?:\.\d+)?\]/)) {
-                    const timeRegex = /\[(\d+:\d+(?:\.\d+)?)\]/g;
+                else if (trimmed.match(/^\[-?\d+:\d+(?:\.\d+)?\]/)) {
+                    const timeRegex = /\[(-?\d+:\d+(?:\.\d+)?)\]/g;
                     let match;
                     let times = [];
                     while ((match = timeRegex.exec(trimmed)) !== null) {
                         times.push(parseTimeLRC(match[1]));
                     }
                     
-                    const text = trimmed.replace(/\[.*?\]/g, '').trim();
+                    // Clean metadata components out from lyrics string but keep lyric words
+                    let text = cleanLyricsLine(trimmed);
+                    text = text.replace(/\[-?\d+:\d+(?:\.\d+)?\]/g, '').trim();
+
                     if (text && text !== '.' && text !== '#') {
                         times.forEach(t => {
                             currentLyricsData.push({ time: t, text: text });
@@ -885,7 +905,6 @@
                     div.onclick = () => {
                         if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
                             ytPlayer.seekTo(ld.time + currentOffset, true);
-                            
                             isUserInteracting = false;
                             clearTimeout(userScrollTimer);
                             lastAutoScrolledIndex = -1;
@@ -899,7 +918,6 @@
                 switchVideoVersion(parsedYTLinks[0].id, parsedYTLinks[0].offset, 0);
             } else {
                 if(isPlayerReady) ytPlayer.stopVideo();
-                // If there's no video link, hide the loader immediately
                 document.getElementById('player-loader').classList.add('hidden');
                 scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No [youtube:...] tag found in this file.</div>' + scroller.innerHTML;
             }
@@ -909,7 +927,6 @@
 
         function startSync() {
             clearInterval(syncInterval);
-            
             isUserInteracting = false;
             clearTimeout(userScrollTimer);
             lastAutoScrolledIndex = -1;
