@@ -220,7 +220,6 @@
             z-index: 2;
         }
 
-        /* --- Player Loading Overlay CSS --- */
         .player-loader {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -288,26 +287,34 @@
         .lyric-line {
             font-size: 18px;
             padding: 10px 15px;
-            margin: 5px 0;
+            margin: 8px 0;
             color: #94a3b8;
             transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             min-height: 24px;
             border-radius: 8px;
             transform-origin: center center;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
         }
         .lyric-line:hover {
             color: #e2e8f0;
             background-color: rgba(255,255,255,0.05);
         }
         .lyric-line.active {
-            transform: scale(1.06); 
+            transform: scale(1.04); 
             color: var(--accent);
-            background-color: rgba(56, 189, 248, 0.1);
-            text-shadow: 
-                0.3px 0 0 var(--accent), 
-                -0.3px 0 0 var(--accent), 
-                0 1px 2px rgba(0,0,0,0.5);
+            background-color: rgba(56, 189, 248, 0.08);
+        }
+        .lyric-translation-sub {
+            font-size: 14px;
+            color: #818cf8;
+            font-weight: normal;
+            display: block;
+            margin-top: 2px;
+            direction: rtl; /* Sets Arabic/Darija script flow nicely */
         }
         .loading { display: none; margin-top: 20px; font-weight: bold; }
     </style>
@@ -465,15 +472,147 @@
             return cleaned.trim();
         }
 
+        // Drop punctuations completely for translation alignment lookups
+        function cleanPunctuationForMatching(str) {
+            if (!str) return "";
+            return str.replace(/[\\,\.\?\!\;\:\-\—\‘\’\“\”\(\)\[\]\{\}\<\>\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]/g, '')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+        }
+
         function stripLrcTags(text) {
             if (!text) return "";
-            return text.split(/\r?\n/)
+            // Cut translation tracking section completely for standard pure text layouts
+            let cleanSource = text;
+            const transIdx = text.toLowerCase().indexOf('<translation>');
+            if(transIdx !== -1) {
+                cleanSource = text.substring(0, transIdx);
+            }
+
+            return cleanSource.split(/\r?\n/)
                 .map(line => {
                     let cleaned = cleanLyricsLine(line);
                     return cleaned.replace(/\[-?\d+:\d+(?:\.\d+)?\]/g, '').trim();
                 })
                 .filter(line => line.length > 0 && line !== '.' && line !== '#') 
                 .join('\n'); 
+        }
+
+        /* --- Levenshtein Distance Calculation for Closest Match Fallbacks --- */
+        function calculateLevenshteinSimilarity(s1, s2) {
+            let longer = s1;
+            let shorter = s2;
+            if (s1.length < s2.length) {
+                longer = s2;
+                shorter = s1;
+            }
+            let longerLength = longer.length;
+            if (longerLength === 0) {
+                return 1.0;
+            }
+            return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+        }
+
+        function editDistance(s1, s2) {
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+            let costs = new Array();
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i == 0) costs[j] = j;
+                    else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) costs[s2.length] = lastValue;
+            }
+            return costs[s2.length];
+        }
+
+        /* --- Custom Parser Block for Extraction of XML Translations Translation --- */
+        function parseTranslationData(rawText) {
+            const transMap = {};
+            const transStartIdx = rawText.toLowerCase().indexOf('<translation>');
+            const transEndIdx = rawText.toLowerCase().indexOf('</translation>');
+            
+            if (transStartIdx === -1) return transMap;
+            
+            let blockContent = "";
+            if (transEndIdx !== -1) {
+                blockContent = rawText.substring(transStartIdx + 13, transEndIdx);
+            } else {
+                blockContent = rawText.substring(transStartIdx + 13);
+            }
+
+            // Split on <t> manually to manage structural omissions safely
+            const segments = blockContent.split(/<t>/i);
+            
+            segments.forEach(seg => {
+                let textClean = seg.replace(/<\/t>/i, '').trim();
+                if (!textClean) return;
+
+                const lines = textClean.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                if (lines.length < 2) return;
+
+                const baseLineOriginal = lines[0];
+                const normalizedKey = cleanPunctuationForMatching(baseLineOriginal);
+
+                const translations = {};
+                for (let i = 1; i < lines.length; i++) {
+                    const match = lines[i].match(/^\[([a-zA-Z0-9_-]+)\](.*)/);
+                    if (match) {
+                        const langCode = match[1].toLowerCase();
+                        const translatedValue = match[2].trim();
+                        translations[langCode] = translatedValue;
+                    }
+                }
+
+                if (normalizedKey) {
+                    transMap[normalizedKey] = {
+                        original: baseLineOriginal,
+                        translations: translations
+                    };
+                }
+            });
+
+            return transMap;
+        }
+
+        function findMatchingTranslation(lyricLine, translationDb) {
+            if (!lyricLine) return "";
+            const normLyric = cleanPunctuationForMatching(lyricLine);
+            if (!normLyric) return "";
+
+            // 1. Direct exact mapping check
+            if (translationDb[normLyric] && translationDb[normLyric].translations['ary']) {
+                return translationDb[normLyric].translations['ary'];
+            }
+
+            // 2. Fuzzy fallback check using Levenshtein structural comparison
+            let bestMatchKey = null;
+            let highestScore = 0.0;
+            const threshold = 0.45; // Minimum similarity threshold score
+
+            for (const key in translationDb) {
+                const score = calculateLevenshteinSimilarity(normLyric, key);
+                if (score > highestScore) {
+                    highestScore = score;
+                    bestMatchKey = key;
+                }
+            }
+
+            if (bestMatchKey && highestScore >= threshold && translationDb[bestMatchKey].translations['ary']) {
+                return translationDb[bestMatchKey].translations['ary'];
+            }
+
+            return ""; 
         }
 
         function normalizeText(str) {
@@ -485,7 +624,7 @@
                 .replace(/(^|\s)ⵢⵉ/g, '$1ⵉ')      
                 .replace(/ⵕ/g, 'ⵔ')
                 .replace(/ⵯ/g, '')
-                .replace(/ⵚ/g, '散')
+                .replace(/ⵚ/g, 'ⵙ')
                 .replace(/ⵥ/g, 'ⵣ')
                 .replace(/ⴹ/g, 'ⴷ')
                 .replace(/ⵟ/g, 'ⵜ')
@@ -624,7 +763,14 @@
             results.forEach((res, index) => {
                 const plainText = stripLrcTags(res.raw);
                 
-                const cleanedSynced = res.raw.split(/\r?\n/)
+                // For preview tab display, strip translation XML components clean
+                let rawLrcSection = res.raw;
+                const transIdx = res.raw.toLowerCase().indexOf('<translation>');
+                if(transIdx !== -1) {
+                    rawLrcSection = res.raw.substring(0, transIdx);
+                }
+
+                const cleanedSynced = rawLrcSection.split(/\r?\n/)
                     .map(line => cleanLyricsLine(line))
                     .filter(l => l.length > 0 && l !== '.' && l !== '#')
                     .join('\n');
@@ -790,10 +936,13 @@
             const isChecked = latinToggle.checked;
             localStorage.setItem('preferLatin', isChecked);
             
-            const lines = document.querySelectorAll('.lyric-line');
-            lines.forEach((lineEl, i) => {
+            const lineContainers = document.querySelectorAll('.lyric-line');
+            lineContainers.forEach((lineEl, i) => {
                 if(currentLyricsData[i]) {
-                    lineEl.textContent = isChecked ? transliterate(currentLyricsData[i].text) : currentLyricsData[i].text;
+                    const textNode = lineEl.childNodes[0];
+                    if(textNode) {
+                        textNode.textContent = isChecked ? transliterate(currentLyricsData[i].text) : currentLyricsData[i].text;
+                    }
                 }
             });
         }
@@ -812,8 +961,11 @@
 
             const data = window[`resData_${index}`];
             const rawLrc = data.originalRaw;
-            const lines = rawLrc.split('\n');
             
+            // Build the translation mapping database
+            const translationDb = parseTranslationData(rawLrc);
+
+            const lines = rawLrc.split('\n');
             let parsedYTLinks = [];
             currentLyricsData = [];
             currentOffset = 0;
@@ -821,7 +973,6 @@
             lines.forEach(line => {
                 const trimmed = line.trim();
                 
-                // Matches [yt:...], [yt_2:...], [youtube:...] etc.
                 if (trimmed.match(/^\[(youtube|yt(_\d+)?):/)) {
                     const closeIdx = trimmed.indexOf(']');
                     if (closeIdx !== -1) {
@@ -854,8 +1005,15 @@
                     text = text.replace(/\[-?\d+:\d+(?:\.\d+)?\]/g, '').trim();
 
                     if (text && text !== '.' && text !== '#') {
+                        // Find the matching direct translation row or run the fuzzy lookup fallback
+                        const translationText = findMatchingTranslation(text, translationDb);
+                        
                         times.forEach(t => {
-                            currentLyricsData.push({ time: t, text: text });
+                            currentLyricsData.push({ 
+                                time: t, 
+                                text: text,
+                                translation: translationText 
+                            });
                         });
                     }
                 }
@@ -894,7 +1052,19 @@
                     const div = document.createElement('div');
                     div.className = 'lyric-line';
                     div.id = 'lyric-' + i;
-                    div.textContent = useLatin ? transliterate(ld.text) : ld.text;
+                    
+                    // Main lyric presentation string
+                    const lyricSpan = document.createTextNode(useLatin ? transliterate(ld.text) : ld.text);
+                    div.appendChild(lyricSpan);
+
+                    // Add translation subtitle if extracted from the translation block successfully
+                    if (ld.translation) {
+                        const transDiv = document.createElement('span');
+                        transDiv.className = 'lyric-translation-sub';
+                        transDiv.textContent = ld.translation;
+                        div.appendChild(transDiv);
+                    }
+
                     div.onclick = () => {
                         if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
                             ytPlayer.seekTo(ld.time + currentOffset, true);
@@ -912,7 +1082,7 @@
             } else {
                 if(isPlayerReady) ytPlayer.stopVideo();
                 document.getElementById('player-loader').classList.add('hidden');
-                scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No video link tag ([yt:...], [yt_2:...], [youtube:...]) found in this file.</div>' + scroller.innerHTML;
+                scroller.innerHTML = '<div style="color:var(--primary); font-weight:bold; margin-bottom: 20px;">No video link tag found in this file.</div>' + scroller.innerHTML;
             }
 
             window.scrollTo({ top: playerSection.offsetTop - 20, behavior: 'smooth' });
